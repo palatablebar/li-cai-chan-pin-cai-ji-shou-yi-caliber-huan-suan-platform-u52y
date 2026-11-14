@@ -1,0 +1,50 @@
+/* yieldbook 设计令牌：银行产品手册 / 藏青 + 铜金 + 细衬线 + 目录式编号。
+   规则：oklch() 色板；禁纯黑纯白；display=细衬线，body=无衬线，mono=编号与数值。 */
+:root {
+  /* 纸面：米白偏冷，不用纯白 */
+  --paper: oklch(0.968 0.007 88);
+  --paper-2: oklch(0.945 0.010 86);
+  --paper-3: oklch(0.912 0.014 84);
+
+  /* 藏青墨色阶 */
+  --ink: oklch(0.245 0.052 262);
+  --ink-soft: oklch(0.405 0.046 260);
+  --ink-faint: oklch(0.565 0.036 258);
+  --navy: oklch(0.288 0.078 262);
+  --navy-deep: oklch(0.208 0.062 264);
+  --navy-soft: oklch(0.385 0.072 260);
+  --navy-wash: oklch(0.930 0.020 255);
+
+  /* 铜金：只做强调与编号，不铺大面积 */
+  --copper: oklch(0.612 0.108 72);
+  --copper-soft: oklch(0.702 0.090 74);
+  --copper-wash: oklch(0.947 0.028 82);
+
+  --rule: oklch(0.848 0.012 86);
+  --rule-strong: oklch(0.720 0.022 82);
+  --ok: oklch(0.500 0.078 158);
+  --ok-wash: oklch(0.940 0.026 158);
+  --warn: oklch(0.665 0.118 72);
+  --warn-wash: oklch(0.950 0.034 78);
+  --danger: oklch(0.520 0.138 26);
+  --danger-wash: oklch(0.944 0.032 28);
+  --info: oklch(0.500 0.058 250);
+  --info-wash: oklch(0.940 0.018 250);
+
+  --font-display: 'Source Serif 4', 'Noto Serif SC', 'Songti SC', serif;
+  --font-body: 'IBM Plex Sans', 'Noto Sans SC', 'PingFang SC', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', ui-monospace, monospace;
+
+  --fs-xs: 0.71rem;
+  --fs-sm: 0.82rem;
+  --fs-md: 0.94rem;
+  --fs-lg: 1.16rem;
+  --fs-xl: clamp(1.45rem, 2.1vw, 2.05rem);
+  --fs-2xl: clamp(2rem, 3.6vw, 3.4rem);
+
+  --pad: clamp(15px, 1.7vw, 30px);
+  --rail: 238px;
+  --radius: 2px;
+  --shadow: 0 1px 0 oklch(0.865 0.012 86), 0 22px 44px -38px oklch(0.30 0.05 262 / 0.55);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
