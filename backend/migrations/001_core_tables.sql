@@ -22,9 +22,63 @@ CREATE TABLE products (
     term_days       INTEGER      NOT NULL DEFAULT 0,
     fee_rate        DOUBLE PRECISION NOT NULL DEFAULT 0,
     active          BOOLEAN      NOT NULL DEFAULT TRUE,
+    listed          BOOLEAN      NOT NULL DEFAULT TRUE,  -- FALSE = 采集待确认，不进正式对比榜
     note            TEXT,
     created_at      TIMESTAMP    NOT NULL,
     updated_at      TIMESTAMP    NOT NULL
+);
+
+-- 机构批量采集：同一（机构, batch_key）幂等，重试不新增
+CREATE TABLE ingest_batches (
+    id              SERIAL PRIMARY KEY,
+    batch_no        VARCHAR(40)  NOT NULL UNIQUE,
+    institution     VARCHAR(80)  NOT NULL,
+    batch_key       VARCHAR(120) NOT NULL,
+    status          VARCHAR(16)  NOT NULL DEFAULT 'received',  -- received / processed
+    row_count       INTEGER      NOT NULL DEFAULT 0,
+    rejected        JSON,                    -- 缺机构编码、无法识别的行（行号 + 原因）
+    operator_email  VARCHAR(160) NOT NULL,
+    note            TEXT,
+    created_at      TIMESTAMP    NOT NULL,
+    updated_at      TIMESTAMP    NOT NULL,
+    CONSTRAINT uq_ingest_batch_inst_key UNIQUE (institution, batch_key)
+);
+
+-- 来源记录：按（机构, 机构编码）识别；状态机 pending/merged/conflict/confirmed
+CREATE TABLE source_records (
+    id              SERIAL PRIMARY KEY,
+    batch_id        INTEGER      NOT NULL REFERENCES ingest_batches(id) ON DELETE CASCADE,
+    row_no          INTEGER      NOT NULL DEFAULT 0,
+    institution     VARCHAR(80)  NOT NULL,
+    inst_code       VARCHAR(40)  NOT NULL,   -- 机构自己的产品编码（机构间可重码）
+    payload         JSON,                    -- 来源行原文，保留来源
+    name            VARCHAR(120),
+    product_type    VARCHAR(20),
+    risk_level      VARCHAR(4),
+    min_amount      DOUBLE PRECISION,
+    term_days       INTEGER,
+    fee_rate        DOUBLE PRECISION,
+    missing_fields  JSON,                    -- 缺失要素逐字段列出，不再只显示「跳过一条」
+    invalid_fields  JSON,                    -- 取值非法的要素（如风险等级 R9）
+    conflict_fields JSON,                    -- 与目录不一致的要素 [{field, existing, incoming}]
+    status          VARCHAR(16)  NOT NULL DEFAULT 'pending',
+    product_id      INTEGER      REFERENCES products(id) ON DELETE SET NULL,
+    reviewer        VARCHAR(160),
+    review_note     TEXT,
+    confirmed_at    TIMESTAMP,
+    created_at      TIMESTAMP    NOT NULL,
+    updated_at      TIMESTAMP    NOT NULL,
+    CONSTRAINT uq_source_record_batch_code UNIQUE (batch_id, inst_code)
+);
+
+-- 机构编码映射：（机构, 机构编码）-> 正式产品；两家机构同码各自成行
+CREATE TABLE product_sources (
+    id              SERIAL PRIMARY KEY,
+    product_id      INTEGER      NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    institution     VARCHAR(80)  NOT NULL,
+    inst_code       VARCHAR(40)  NOT NULL,
+    created_at      TIMESTAMP    NOT NULL,
+    CONSTRAINT uq_product_source_inst_code UNIQUE (institution, inst_code)
 );
 
 CREATE TABLE quotes (

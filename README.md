@@ -25,27 +25,30 @@
 
 | 角色 | 账号 | 权限 | 典型动作 |
 |---|---|---|---|
-| 产品经理 `admin` | `admin@yieldbook.io` | 产品维护 + 报价导入 + 换算 + 复核 + 关注 + 导出 + 审计 | 登记产品、导入报价、导出对比榜、查审计 |
-| 口径专员 `analyst` | `analyst@yieldbook.io` | 报价导入 + 换算 + 复核 + 关注（**不能导出、不能看审计**） | 跑换算、复核可比口径、维护到期提醒 |
+| 产品经理 `admin` | `admin@yieldbook.io` | 产品维护 + 报价导入 + 机构采集 + 换算 + 复核 + 关注 + 导出 + 审计 | 登记产品、接收采集批次、导出对比榜、查审计 |
+| 口径专员 `analyst` | `analyst@yieldbook.io` | 报价导入 + 机构采集与确认 + 换算 + 复核 + 关注（**不能导出、不能看审计**） | 接收机构批次、补齐待补记录、确认入榜、跑换算 |
 | 客户经理 `viewer` | `viewer@yieldbook.io` | 只读榜单与产品要素，**费率字段在接口层被剔除** | 查看对比榜，向客户解释口径 |
 
 密码统一：`Demo@2026`。无 token → **401**；低权越权 → **真实 403**（不是前端隐藏按钮）：
 
 - `POST /api/products` 用 viewer → 403；`POST /api/yield-runs` 用 viewer → 403；
+- `POST /api/ingest/batches`、`PATCH /api/ingest/records/{id}`、`POST /api/ingest/records/{id}/confirm` 用 viewer → 403；
 - `PATCH /api/yield-views/{id}/review` 用 viewer → 403；
 - `GET /api/exports/views.csv` 用 analyst 或 viewer → 403；
 - `GET /api/audit` 用 analyst 或 viewer → 403。
-- `POST /api/products` 空 body → 422；`POST /api/quotes` 重复（产品 + 报价日）→ 409。
+- `POST /api/products` 空 body → 422；`POST /api/quotes` 重复（产品 + 报价日）→ 409；
+- 冲突记录确认不带 `resolution` → 422；待补记录直接确认 → 422。
 
 ## 3. 功能模块
 
-1. **产品库**（`/api/products`）：68 只产品的要素检索（类型 / 风险等级 / 期限档 / 机构 / 在售），详情含近 5 日报价与最近一次口径结果；管理员可登记、停售/复售。
-2. **口径换算**（`/api/yield-runs`）：一键把全部产品报价换算成可比年化，记录产品数、方法分布、分组数与日志。
-3. **对比榜**（`/api/yield-views`、`/api/yield-views/groups`）：按「类型 + 期限档」分组的前 N 名，含排名、年化波动、风险调整、置信度；口径缺失条目标 unknown 不参与排名。
-4. **复核**（`PATCH /api/yield-views/{id}/review`）：口径专员确认/驳回，保留复核人与备注。
-5. **关注与到期**（`/api/watchlist`）：到期提醒与排名提醒，带剩余天数与 7 天内到期统计。
-6. **导入与导出**（`/api/quotes`、`/api/exports/views.csv`）：单条/批量写入报价，自然键冲突 409；CSV 导出带 UTF-8 BOM。
-7. **审计**（`/api/audit`）：登录、产品维护、报价导入、换算、复核、导出全量留痕（HTTP 中间件 + 领域动作两层）。
+1. **产品库**（`/api/products`）：68 只产品的要素检索（类型 / 风险等级 / 期限档 / 机构 / 在售 / 是否入榜），详情含近 5 日报价、最近一次口径结果与机构来源编码；管理员可登记、停售/复售。
+2. **机构采集**（`/api/ingest`）：机构目录批量接收与暂存——按（机构, 机构编码）识别来源记录，两家机构重码各自映射、绝不互挂；同一（机构, 批次号）重试幂等（不新增、不丢失、不改写已确认）；缺起购金额 / 风险等级的行进入「待补」并逐字段列出；同一只产品要素不一致进入「待确认」，保留来源值与差异清单；补齐并确认后产品才 `listed=True` 进入正式对比榜。
+3. **口径换算**（`/api/yield-runs`）：一键把全部**已入榜**产品报价换算成可比年化，记录产品数、方法分布、分组数与日志。
+4. **对比榜**（`/api/yield-views`、`/api/yield-views/groups`）：按「类型 + 期限档」分组的前 N 名，含排名、年化波动、风险调整、置信度；口径缺失条目标 unknown 不参与排名。
+5. **复核**（`PATCH /api/yield-views/{id}/review`）：口径专员确认/驳回，保留复核人与备注。
+6. **关注与到期**（`/api/watchlist`）：到期提醒与排名提醒，带剩余天数与 7 天内到期统计。
+7. **导入与导出**（`/api/quotes`、`/api/exports/views.csv`）：单条/批量写入报价，自然键冲突 409；CSV 导出带 UTF-8 BOM。
+8. **审计**（`/api/audit`）：登录、产品维护、机构采集（接收 / 补齐 / 确认）、报价导入、换算、复核、导出全量留痕（HTTP 中间件 + 领域动作两层）。
 
 ## 4. 快速启动
 
@@ -88,15 +91,15 @@ docker compose exec -T backend python -m pytest tests -q
 backend/
   src/config         settings / app 装配 / database / celery
   src/constants      enums(共享枚举) / roles(权限) / limits / log_templates
-  src/models         product / quote / watch / yield_run / yield_view / user / audit
-  src/schemas        product / quote / yield / watch / auth / common
-  src/services       yield_math(算法) / product / quote / yield / watch / export / overview / audit / auth
-  src/controllers    产品 / 报价 / 换算 / 关注 / 导出 / 认证
-  src/routes         products / quotes / yield / watchlist / exports / overview / audit / health / auth
+  src/models         product / quote / watch / yield_run / yield_view / user / audit / ingest
+  src/schemas        product / quote / yield / watch / auth / common / ingest
+  src/services       yield_math(算法) / product / quote / yield / watch / export / overview / audit / auth / ingest
+  src/controllers    产品 / 报价 / 换算 / 关注 / 导出 / 认证 / 机构采集
+  src/routes         products / quotes / yield / watchlist / exports / overview / audit / health / auth / ingest
   src/middlewares    auth(JWT) / rbac(403) / audit_logger / rate_limit / error_handler
   scripts            demo_config(种子数据) / seed_demo / worker_healthcheck.sh
   migrations/        001_core_tables.sql（DDL 参考，运行时不执行）
-  tests/             test_yield_math.py(算法) / test_security.py
+  tests/             test_yield_math.py(算法) / test_security.py / test_ingest.py(采集)
 frontend/site/
   index.html  css/{tokens,app}.css
   js/{config,api,store,ui,app}.js  js/pages/{login,overview,products,compare,watchlist,runs,audit}.js
@@ -146,6 +149,7 @@ frontend/site/
 | 换算口径 `direct/wanfen/nav/bench/unknown` | `backend/src/constants/enums.py`(`YieldMethod`) | `js/config.js`(`ENUMS.method`) |
 | 置信度 `high/medium/low/none` | `backend/src/constants/enums.py`(`Confidence`) | `js/config.js`(`ENUMS.confidence`) |
 | 复核状态 `pending/confirmed/dismissed` | `backend/src/constants/enums.py`(`ReviewStatus`) | `js/config.js`(`ENUMS.review`) |
+| 采集记录状态 `pending/merged/conflict/confirmed` | `backend/src/constants/enums.py`(`IngestStatus`) | `js/config.js`(`ENUMS.ingestStatus`) |
 | 运行状态 `running/success/partial/failed` | `backend/src/constants/enums.py`(`RunStatus`) | `js/config.js`(`ENUMS.runStatus`) |
 | 关注类型/状态 `expire|rank`、`pending/notified/done` | `backend/src/constants/enums.py`(`WatchKind`/`WatchStatus`) | `js/config.js`(`ENUMS.watchKind`/`watchStatus`) |
 
@@ -154,11 +158,29 @@ frontend/site/
 - `backend/scripts/demo_config.py`：68 只产品（手工命名，覆盖 4 类 / R1-R5 / 4 个期限档）、
   5 个交易日 × 68 条 = 340 条报价（锚定 2026-11-09 ~ 2026-11-13）、12 条关注；
 - 自然键：`users.email`、`products.code`、`quotes(product_id, quote_date)`、`watches(product_id, kind)`、
-  `yield_runs.seed_key`、`yield_views(run_id, product_id)`、`audit_logs.seed_key`；
+  `yield_runs.seed_key`、`yield_views(run_id, product_id)`、`ingest_batches(institution, batch_key)`、
+  `source_records(batch_id, inst_code)`、`product_sources(institution, inst_code)`、`audit_logs.seed_key`；
 - 重复执行只补缺失行，**不覆盖人工复核状态**（`yield_views.status/reviewer/review_note` 保留）；
+  演示采集批次已存在则整批跳过，不覆盖人工补齐与确认；
 - 结束打印一行固定契约（键名与顺序按 batch-plan）：
   `SEED_SUMMARY brand=yieldbook users=3 sources=68 runs=1 findings=68 pending=68`
   其中 `sources` = 产品主档数、`findings` = 换算结果数（契约键名固定，含义映射见本节）。
+
+### 演示采集批次（seed 自带，可直接走完整流程）
+
+机构「华信理财」批次 `seed-ingest-2026-11-13`，5 行覆盖全部状态，**不新增产品主档**（契约不变）：
+
+| 行 | 机构编码 | 结果 | 说明 |
+|---|---|---|---|
+| 1 | `yb003` | 已合入 | 要素与目录一致，认领存量产品 |
+| 2 | `yb011` | 待确认 | 风险等级 R1→R2、起购 100→1000 与目录不一致，差异已列出 |
+| 3 | `HX1001` | 待补 | 缺起购金额 |
+| 4 | `HX1002` | 待补 | 缺风险等级 |
+| 5 | `yb001` | 待补 | 与江城银行的 `yb001` 重码：作为华信理财的独立记录待补，不互挂 |
+
+在「产品库 → 机构采集批次」里补齐第 3/4/5 行 → 状态变「已合入」（新建未上榜产品 `ig0001…`）→
+「确认入榜」后 `listed=True`，下一次口径换算才纳入正式对比榜；第 2 行在「处理冲突」里选择
+保留目录值或采用来源值后确认入榜。
 
 ## 11. 环境变量
 

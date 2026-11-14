@@ -192,3 +192,38 @@ QUOTE_SOURCE_LABELS: dict[str, str] = {
     QuoteSource.IMPORT.value: "机构批量导入",
     QuoteSource.MANUAL.value: "手工补录",
 }
+
+
+class IngestStatus(StrEnum):
+    """来源记录状态机：待补 -> 已合入 / 待确认 -> 已确认（确认后才进正式对比榜）。"""
+
+    PENDING = "pending"
+    MERGED = "merged"
+    CONFLICT = "conflict"
+    CONFIRMED = "confirmed"
+
+
+INGEST_STATUS_LABELS: dict[str, str] = {
+    IngestStatus.PENDING.value: "待补",
+    IngestStatus.MERGED.value: "已合入",
+    IngestStatus.CONFLICT.value: "待确认",
+    IngestStatus.CONFIRMED.value: "已确认",
+}
+
+INGEST_STATUS_ORDER: list[str] = [
+    IngestStatus.PENDING.value,
+    IngestStatus.CONFLICT.value,
+    IngestStatus.MERGED.value,
+    IngestStatus.CONFIRMED.value,
+]
+
+
+class IngestBatchStatus(StrEnum):
+    RECEIVED = "received"
+    PROCESSED = "processed"
+
+
+INGEST_BATCH_STATUS_LABELS: dict[str, str] = {
+    IngestBatchStatus.RECEIVED.value: "已接收",
+    IngestBatchStatus.PROCESSED.value: "已处理",
+}

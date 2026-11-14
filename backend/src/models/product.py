@@ -23,6 +23,8 @@ class Product(Base):
     term_days: Mapped[int] = mapped_column(Integer, default=0)
     fee_rate: Mapped[float] = mapped_column(Float, default=0.0)
     active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    # 是否进入正式对比榜：机构采集新建的产品先不上榜，来源记录补齐并确认后才置 True
+    listed: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)

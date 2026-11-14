@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from src.config.database import engine, wait_for_db
 from src.config.settings import settings
@@ -23,6 +24,20 @@ def _bootstrap_database() -> None:
 
     wait_for_db()
     Base.metadata.create_all(bind=engine)
+    _ensure_listed_column()
+
+
+def _ensure_listed_column() -> None:
+    """create_all 不给已存在的表加列；对老库幂等补 products.listed（仅 PostgreSQL）。"""
+    if settings.db_kind != "postgres":
+        return
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("ALTER TABLE products ADD COLUMN IF NOT EXISTS listed BOOLEAN NOT NULL DEFAULT TRUE")
+            )
+    except Exception as exc:  # noqa: BLE001 - 启动阶段不阻塞
+        logger.warning("[BOOTSTRAP] ensure products.listed failed (ignored): %s", exc)
 
 
 def _run_seed_once() -> None:

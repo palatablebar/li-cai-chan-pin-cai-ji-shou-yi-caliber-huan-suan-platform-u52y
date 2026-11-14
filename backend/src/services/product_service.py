@@ -44,6 +44,7 @@ def serialize(product: Product, *, hide_fee: bool = False) -> dict:
         "fee_rate": None if hide_fee else round(float(product.fee_rate or 0), 4),
         "fee_hidden": hide_fee,
         "active": product.active,
+        "listed": product.listed,
         "note": product.note,
         "created_at": iso_utc(product.created_at),
         "updated_at": iso_utc(product.updated_at),
@@ -59,6 +60,7 @@ def list_products(
     bucket: str | None = None,
     issuer: str | None = None,
     active: bool | None = None,
+    listed: bool | None = None,
     limit: int = 20,
     offset: int = 0,
     hide_fee: bool = False,
@@ -79,6 +81,8 @@ def list_products(
         conditions.append(BUCKET_FILTERS[bucket])
     if active is not None:
         conditions.append(Product.active.is_(active))
+    if listed is not None:
+        conditions.append(Product.listed.is_(listed))
     for condition in conditions:
         stmt = stmt.where(condition)
         count_stmt = count_stmt.where(condition)
@@ -119,6 +123,7 @@ def latest_view(db: Session, product_id: int) -> tuple[YieldView, YieldRun] | No
 
 
 def detail(db: Session, product_id: int, *, hide_fee: bool = False) -> dict:
+    from src.models.ingest import ProductSource
     from src.services import quote_service, yield_service
 
     product = get_product(db, product_id)
@@ -127,6 +132,10 @@ def detail(db: Session, product_id: int, *, hide_fee: bool = False) -> dict:
         select(Quote).where(Quote.product_id == product_id).order_by(Quote.quote_date.desc()).limit(5)
     ).all()
     payload["quotes"] = [quote_service.serialize(row, product=product) for row in reversed(quotes)]
+    sources = db.scalars(
+        select(ProductSource).where(ProductSource.product_id == product_id).order_by(ProductSource.id)
+    ).all()
+    payload["sources"] = [{"institution": row.institution, "inst_code": row.inst_code} for row in sources]
     latest = latest_view(db, product_id)
     if latest:
         view, run = latest

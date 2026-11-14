@@ -13,5 +13,18 @@ from src.models.quote import Quote  # noqa: E402
 from src.models.watch import Watch  # noqa: E402
 from src.models.yield_run import YieldRun  # noqa: E402
 from src.models.yield_view import YieldView  # noqa: E402
+from src.models.ingest import IngestBatch, ProductSource, SourceRecord  # noqa: E402
 
-__all__ = ["Base", "User", "AuditLog", "Product", "Quote", "Watch", "YieldRun", "YieldView"]
+__all__ = [
+    "Base",
+    "User",
+    "AuditLog",
+    "Product",
+    "Quote",
+    "Watch",
+    "YieldRun",
+    "YieldView",
+    "IngestBatch",
+    "SourceRecord",
+    "ProductSource",
+]

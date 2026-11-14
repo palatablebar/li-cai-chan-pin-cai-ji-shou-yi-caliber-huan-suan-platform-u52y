@@ -34,8 +34,11 @@ def next_run_no(db: Session) -> str:
 
 
 def compute_items(db: Session) -> list[dict]:
-    """把库里所有产品 + 报价换算成可比年化，并完成同类排名（算法 A + B）。"""
-    products = db.scalars(select(Product).order_by(Product.id)).all()
+    """把库里所有产品 + 报价换算成可比年化，并完成同类排名（算法 A + B）。
+
+    只取 listed=True 的正式产品：机构采集新建、尚未补齐确认的产品不进对比榜。
+    """
+    products = db.scalars(select(Product).where(Product.listed.is_(True)).order_by(Product.id)).all()
     quotes = db.scalars(select(Quote).order_by(Quote.product_id, Quote.quote_date)).all()
     by_product: dict[int, list[Quote]] = {}
     for quote in quotes:

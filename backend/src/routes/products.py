@@ -22,6 +22,7 @@ def list_products(
     bucket: str | None = None,
     issuer: str | None = None,
     active: bool | None = None,
+    listed: bool | None = None,
     limit: int = Query(20, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
@@ -37,6 +38,7 @@ def list_products(
         bucket=bucket,
         issuer=issuer,
         active=active,
+        listed=listed,
         limit=page.limit,
         offset=page.offset,
     )

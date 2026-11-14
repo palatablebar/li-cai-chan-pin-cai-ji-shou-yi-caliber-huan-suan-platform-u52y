@@ -41,6 +41,9 @@ export const PERMISSIONS = {
     'product:write',
     'quote:read',
     'quote:import',
+    'ingest:read',
+    'ingest:write',
+    'ingest:confirm',
     'yield:read',
     'yield:run',
     'yield:review',
@@ -54,13 +57,16 @@ export const PERMISSIONS = {
     'product:read',
     'quote:read',
     'quote:import',
+    'ingest:read',
+    'ingest:write',
+    'ingest:confirm',
     'yield:read',
     'yield:run',
     'yield:review',
     'watch:read',
     'watch:write',
   ],
-  viewer: ['overview:read', 'product:read', 'quote:read', 'yield:read', 'watch:read'],
+  viewer: ['overview:read', 'product:read', 'quote:read', 'ingest:read', 'yield:read', 'watch:read'],
 };
 
 /** 共享枚举（与 backend/src/constants/enums.py 一一对应） */
@@ -128,6 +134,12 @@ export const ENUMS = {
     import: '机构批量导入',
     manual: '手工补录',
   },
+  ingestStatus: {
+    pending: '待补',
+    merged: '已合入',
+    conflict: '待确认',
+    confirmed: '已确认',
+  },
 };
 
 export function can(role, permission) {
@@ -154,4 +166,8 @@ export function riskTone(level) {
 
 export function watchTone(status) {
   return { pending: 'pending warn', notified: 'info', done: 'ok' }[status] || 'info';
+}
+
+export function ingestTone(status) {
+  return { pending: 'pending warn', merged: 'info', conflict: 'copper', confirmed: 'ok' }[status] || 'info';
 }
